@@ -1,2 +1,3 @@
-# dogood-terraform
-IaaC for deploying cloud infrastructure
+## Загальне про DoGood Terraform
+
+Кожен конфіг поділений по 
