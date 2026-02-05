@@ -35,6 +35,10 @@ resource "aws_db_instance" "app_db" {
     // Skip final snapshot for testing purposes, but be cautious in production environments
     skip_final_snapshot       = true 
 
+    tags = {
+        Name = "${var.stage}-app-db"
+    }
+
 }
 
 
