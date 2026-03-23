@@ -32,6 +32,7 @@ module "application" {
   app_secrets         = var.app_secrets
   public_subnet_ids   = module.network.public_subnet_ids
   vpc_id              = module.network.vpc_id
-  instance_sg_id      = module.network.instance_security_group_id
+  alb_sg_id           = module.network.alb_sg_id
+  instance_sg_id      = module.network.instance_sg_id
   db_endpoint         = module.database.db_endpoint
 }

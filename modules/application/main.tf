@@ -1,15 +1,27 @@
 resource "aws_key_pair" "ssh_key" {
   key_name   = "${var.stage}_deploy_key"
   public_key = file(var.ssh_key_path)
+
+  tags = {
+    Name = "${var.stage}-deploy-key"
+  }
 }
 
 resource "aws_iam_instance_profile" "ec2_profile" {
   name = "${var.stage}-ec2-ecr-profile"
   role = data.aws_iam_role.ec2_role.name
+
+  tags = {
+    Name = "${var.stage}-ec2-ecr-profile"
+  }
 }
 
 resource "aws_ecs_cluster" "main" {
   name = "${var.stage}-cluster"
+
+  tags = {
+    Name = "${var.stage}-cluster"
+  }
 }
 
 resource "aws_launch_template" "app_launch_template" {
@@ -37,6 +49,10 @@ resource "aws_launch_template" "app_launch_template" {
   network_interfaces {
     associate_public_ip_address = true
     security_groups             = [var.instance_sg_id]
+  }
+
+  tags = {
+    Name = "${var.stage}-app-launch-template"
   }
 
   tag_specifications {
@@ -74,6 +90,10 @@ resource "aws_ecs_capacity_provider" "ec2" {
   auto_scaling_group_provider {
     auto_scaling_group_arn = aws_autoscaling_group.ecs.arn
   }
+
+  tags = {
+    Name = "${var.stage}-ec2-provider"
+  }
 }
 
 resource "aws_ecs_cluster_capacity_providers" "main" {
@@ -85,7 +105,7 @@ resource "aws_lb" "app_lb" {
   name               = "${var.stage}-app-lb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [var.instance_sg_id]
+  security_groups    = [var.alb_sg_id]
   subnets            = var.public_subnet_ids
 
   tags = {
@@ -99,6 +119,21 @@ resource "aws_lb_target_group" "app_tg" {
   protocol    = "HTTP"
   target_type = "ip"
   vpc_id      = var.vpc_id
+
+  health_check {
+    path                = "/all"
+    protocol            = "HTTP"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    matcher  = "404-499"
+    port     = "5000"
+  }
+
+  tags = {
+    Name = "${var.stage}-app-tg"
+  }
 }
 
 resource "aws_lb_listener" "app_listener" {
@@ -116,6 +151,10 @@ resource "aws_secretsmanager_secret" "app_env" {
   name                    = "/dogood/${var.stage}/env"
   description             = "App environment variables"
   recovery_window_in_days = 0
+
+  tags = {
+    Name = "${var.stage}-app-env"
+  }
 }
 
 resource "aws_secretsmanager_secret_version" "app_env" {
@@ -131,6 +170,10 @@ resource "aws_ecs_task_definition" "app" {
   memory                   = 512
   execution_role_arn       = data.aws_iam_role.ecs_execution_role.arn
 
+  tags = {
+    Name = "${var.stage}-dogood-backend-task"
+  }
+
   container_definitions = jsonencode([{
     name  = "dogood-backend"
     image = var.container_image
@@ -139,13 +182,26 @@ resource "aws_ecs_task_definition" "app" {
       hostPort      = var.container_port
       protocol      = "tcp"
     }]
+    command = ["npx", "prisma", "migrate", "${var.stage}"]
     secrets = [
       for key in keys(local.app_secrets_with_db_url) : {
         name      = key
         valueFrom = "${aws_secretsmanager_secret.app_env.arn}:${key}::"
       }
     ]
-  }])
+  },
+  {
+      name = "redis"
+      image = "redis:latest"
+      portMappings = [{
+        containerPort = 6379
+        hostPort      = 6379
+      
+      protocol      = "tcp"
+      }
+    ]
+  }
+  ])
 }
 
 resource "aws_ecs_service" "app" {
@@ -153,6 +209,10 @@ resource "aws_ecs_service" "app" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
+
+  tags = {
+    Name = "${var.stage}-dogood-backend-service"
+  }
 
   network_configuration {
     subnets         = var.public_subnet_ids

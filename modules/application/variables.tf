@@ -50,3 +50,8 @@ variable "ec2_role_name" {
   type    = string
   default = "EC2AccessToECR"
 }
+
+
+variable "alb_sg_id" {
+  type = string
+}
