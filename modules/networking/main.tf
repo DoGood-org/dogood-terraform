@@ -99,6 +99,13 @@ resource "aws_security_group" "instance_sg" {
   }
 
   ingress {
+    from_port   = 8089
+    to_port     = 8089
+    protocol    = "TCP"
+    cidr_blocks = ["${var.my_ip}/32"]
+  }
+
+  ingress {
     from_port   = var.db_port
     to_port     = var.db_port
     protocol    = "tcp"

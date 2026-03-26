@@ -100,10 +100,14 @@ resource "aws_ecs_cluster_capacity_providers" "main" {
   cluster_name       = aws_ecs_cluster.main.name
   capacity_providers = [aws_ecs_capacity_provider.ec2.name]
 }
+# |---------------------------------------------|
+# |          Application Load Balancer          |
+# |---------------------------------------------|
+
 
 resource "aws_lb" "app_lb" {
   name               = "${var.stage}-app-lb"
-  internal           = false
+  internal           = true
   load_balancer_type = "application"
   security_groups    = [var.alb_sg_id]
   subnets            = var.public_subnet_ids
@@ -113,28 +117,6 @@ resource "aws_lb" "app_lb" {
   }
 }
 
-resource "aws_lb_target_group" "app_tg" {
-  name        = "${var.stage}-app-tg"
-  port        = var.container_port
-  protocol    = "HTTP"
-  target_type = "ip"
-  vpc_id      = var.vpc_id
-
-  health_check {
-    path                = "/all"
-    protocol            = "HTTP"
-    interval            = 30
-    timeout             = 5
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-    matcher  = "404-499"
-    port     = "5000"
-  }
-
-  tags = {
-    Name = "${var.stage}-app-tg"
-  }
-}
 
 resource "aws_lb_listener" "app_listener" {
   load_balancer_arn = aws_lb.app_lb.arn
@@ -146,6 +128,36 @@ resource "aws_lb_listener" "app_listener" {
     target_group_arn = aws_lb_target_group.app_tg.arn
   }
 }
+
+resource "aws_lb_target_group" "app_tg" {
+  name        = "${var.stage}-app-tg"
+  port        = var.container_port
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = var.vpc_id
+
+  health_check {
+    path                = "/health/liveness"
+    protocol            = "HTTP"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    matcher  = "200"
+    port     = "5000"
+  }
+
+  tags = {
+    Name = "${var.stage}-app-tg"
+  }
+}
+
+
+# |---------------------------------------------|
+# |          Application Task and Service       |
+# |---------------------------------------------|
+
+
 
 resource "aws_secretsmanager_secret" "app_env" {
   name                    = "/dogood/${var.stage}/env"
@@ -166,8 +178,8 @@ resource "aws_ecs_task_definition" "app" {
   family                   = "dogood-backend"
   network_mode             = "awsvpc"
   requires_compatibilities = ["EC2"]
-  cpu                      = 256
-  memory                   = 512
+  cpu                      = 1600
+  memory                   = 1536
   execution_role_arn       = data.aws_iam_role.ecs_execution_role.arn
 
   tags = {
@@ -182,13 +194,14 @@ resource "aws_ecs_task_definition" "app" {
       hostPort      = var.container_port
       protocol      = "tcp"
     }]
-    command = ["npx", "prisma", "migrate", "${var.stage}"]
+    
     secrets = [
       for key in keys(local.app_secrets_with_db_url) : {
         name      = key
         valueFrom = "${aws_secretsmanager_secret.app_env.arn}:${key}::"
       }
     ]
+    command = ["sh", "-c", "npx prisma migrate ${var.stage} && npm start"]
   },
   {
       name = "redis"
@@ -200,8 +213,25 @@ resource "aws_ecs_task_definition" "app" {
       protocol      = "tcp"
       }
     ]
+  },
+  {
+      name = "pgbouncer"
+      image = "edoburu/pgbouncer:latest"
+      portMappings = [{
+        containerPort = 6432
+        hostPort      = 6432
+        protocol      = "tcp"
+      }]
+
+      environment = [
+        {
+          name  = "DATABASE_URL"
+          value = local.pgbouncer_db_url
+        }
+      ]
   }
   ])
+
 }
 
 resource "aws_ecs_service" "app" {

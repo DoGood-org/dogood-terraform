@@ -55,3 +55,8 @@ variable "ec2_role_name" {
 variable "alb_sg_id" {
   type = string
 }
+
+
+variable "private_subnet_ids" {
+  type = list(string)
+}

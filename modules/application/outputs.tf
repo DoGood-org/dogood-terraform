@@ -13,3 +13,7 @@ output "load_balancer_dns_name" {
 output "secrets_manager_secret_arn" {
   value = aws_secretsmanager_secret.app_env.arn
 }
+
+output "ssh_key" {
+  value = aws_key_pair.ssh_key.key_name
+} 
