@@ -21,3 +21,7 @@ output "ecs_service_name" {
 output "load_balancer_dns_name" {
   value = module.application.load_balancer_dns_name
 }
+
+output "db_proxy_endpoint" {
+  value = module.database.db_proxy_endpoint
+}

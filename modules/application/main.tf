@@ -107,7 +107,6 @@ resource "aws_ecs_cluster_capacity_providers" "main" {
 
 resource "aws_lb" "app_lb" {
   name               = "${var.stage}-app-lb"
-  internal           = true
   load_balancer_type = "application"
   security_groups    = [var.alb_sg_id]
   subnets            = var.public_subnet_ids
@@ -195,6 +194,7 @@ resource "aws_ecs_task_definition" "app" {
       protocol      = "tcp"
     }]
     
+
     secrets = [
       for key in keys(local.app_secrets_with_db_url) : {
         name      = key
@@ -214,22 +214,6 @@ resource "aws_ecs_task_definition" "app" {
       }
     ]
   },
-  {
-      name = "pgbouncer"
-      image = "edoburu/pgbouncer:latest"
-      portMappings = [{
-        containerPort = 6432
-        hostPort      = 6432
-        protocol      = "tcp"
-      }]
-
-      environment = [
-        {
-          name  = "DATABASE_URL"
-          value = local.pgbouncer_db_url
-        }
-      ]
-  }
   ])
 
 }

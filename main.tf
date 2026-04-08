@@ -23,6 +23,7 @@ module "database" {
   db_instance_class    = var.db_instance_class
   db_subnet_group_name = module.network.db_subnet_group_name
   db_security_group_id = module.network.db_security_group_id
+  db_subnet_ids        = module.network.private_subnet_ids
 }
 
 module "application" {
@@ -37,17 +38,21 @@ module "application" {
   vpc_id              = module.network.vpc_id
   alb_sg_id           = module.network.alb_sg_id
   instance_sg_id      = module.network.instance_sg_id
-  db_endpoint         = module.database.db_endpoint
+  db_proxy_endpoint   = module.database.db_proxy_endpoint
+  container_image     = var.container_image
 }
 
-module "proxy" {
-  source = "./modules/proxy"
 
-  stage           = var.stage
-  ami_id          = var.ami_id
-  instance_type    = var.instance_type
-  ssh_key_path     = var.ssh_key_path
-  subnet_id        = module.network.public_subnet_ids[0]
-  security_groups  = [module.network.instance_sg_id]
-  ssh_key          = module.application.ssh_key
-}
+# Цей модуль потрібен тільки для тестування системи зсередини VPC. Для деплою він не обов'язковий.
+
+# module "proxy" {
+#   source = "./modules/proxy"
+
+#   stage           = var.stage
+#   ami_id          = var.ami_id
+#   instance_type    = var.instance_type
+#   ssh_key_path     = var.ssh_key_path
+#   subnet_id        = module.network.public_subnet_ids[0]
+#   security_groups  = [module.network.instance_sg_id]
+#   ssh_key          = module.application.ssh_key
+# }

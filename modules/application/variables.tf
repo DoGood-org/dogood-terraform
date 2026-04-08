@@ -22,7 +22,7 @@ variable "instance_sg_id" {
   type = string
 }
 
-variable "db_endpoint" {
+variable "db_proxy_endpoint" {
   type = string
 }
 
@@ -33,7 +33,6 @@ variable "app_secrets" {
 
 variable "container_image" {
   type    = string
-  default = "104363824351.dkr.ecr.us-west-1.amazonaws.com/dogood-backend:latest"
 }
 
 variable "container_port" {

@@ -19,6 +19,11 @@ variable "db_security_group_id" {
 	type = string
 }
 
+variable "db_subnet_ids" {
+	type = list(string)
+	description = "Subnet IDs for the DB proxy"
+}
+
 variable "db_engine_version" {
 	type    = string
 	default = "17.6"
