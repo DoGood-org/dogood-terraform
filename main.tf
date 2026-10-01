@@ -33,7 +33,7 @@ module "application" {
   instance_sg_id     = module.network.instance_security_group_id
   alb_sg_id          = module.network.alb_security_group_id
   container_image    = "${data.aws_ecr_repository.backend.repository_url}:latest"
-  depends_on = [module.database]
+  depends_on         = [module.database]
 }
 
 module "cloudflare" {

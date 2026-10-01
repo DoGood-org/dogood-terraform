@@ -25,7 +25,7 @@ resource "aws_iam_role_policy" "db_proxy" {
         "secretsmanager:GetSecretValue",
         "secretsmanager:DescribeSecret"
       ]
-      Resource = [aws_secretsmanager_secret.db_credentials.arn]
+      Resource = [aws_db_instance.main.master_user_secret[0].secret_arn]
     }]
   })
 }
