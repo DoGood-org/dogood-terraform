@@ -10,6 +10,13 @@ terraform {
     }
   }
 
+  backend "s3" {
+    bucket       = "dogood-infrastructure-terraform-state-69420"
+    key          = "dogood-terraform/terraform.tfstate"
+    region       = "us-west-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 
 provider "cloudflare" {
