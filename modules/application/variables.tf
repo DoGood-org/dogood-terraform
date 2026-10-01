@@ -2,15 +2,11 @@ variable "stage" {
   type = string
 }
 
-variable "instance_type" {
-  type = string
-}
-
-variable "ssh_key_path" {
-  type = string
-}
-
 variable "public_subnet_ids" {
+  type = list(string)
+}
+
+variable "private_subnet_ids" {
   type = list(string)
 }
 
@@ -22,7 +18,7 @@ variable "instance_sg_id" {
   type = string
 }
 
-variable "db_endpoint" {
+variable "alb_sg_id" {
   type = string
 }
 
@@ -41,12 +37,25 @@ variable "container_port" {
   default = 5000
 }
 
+variable "container_entrypoint" {
+  description = "Overrides the container ENTRYPOINT. Leave as null to use the image's default."
+  type        = list(string)
+  default     = null
+}
+
+variable "container_cpu" {
+  description = "Container-level CPU units (soft limit / QoS share). Leave as null to omit and let the task-level cpu apply."
+  type        = number
+  default     = null
+}
+
+variable "container_memory_reservation" {
+  description = "Soft memory limit (MiB) reserved for the container (QoS). The hard limit is still bounded by the task-level memory."
+  type        = number
+  default     = null
+}
+
 variable "ecs_execution_role_name" {
   type    = string
   default = "ecsExecutionRole"
-}
-
-variable "ec2_role_name" {
-  type    = string
-  default = "EC2AccessToECR"
 }

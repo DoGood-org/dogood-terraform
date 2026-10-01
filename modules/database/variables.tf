@@ -1,25 +1,29 @@
 variable "stage" {
-	type = string
+  type = string
 }
 
 variable "app_secrets" {
-	type      = map(string)
-	sensitive = true
+  type      = map(string)
+  sensitive = true
 }
 
 variable "db_instance_class" {
-	type = string
+  type = string
 }
 
 variable "db_subnet_group_name" {
-	type = string
+  type = string
 }
 
 variable "db_security_group_id" {
-	type = string
+  type = string
+}
+
+variable "private_subnet_ids" {
+  type = list(string)
 }
 
 variable "db_engine_version" {
-	type    = string
-	default = "17.6"
+  type    = string
+  default = "17.6"
 }

@@ -10,48 +10,16 @@ variable "vpc_cidr_block" {
   default     = "10.0.0.0/16"
 }
 
-variable "aws_access_key" {
-  description = "The AWS access key"
+variable "aws_profile" {
+  description = "Named AWS CLI profile to use for authentication (from ~/.aws/config or ~/.aws/credentials). Leave empty to use the default credential chain."
   type        = string
-}
-
-variable "aws_secret_key" {
-  description = "The AWS secret key"
-  type        = string
-}
-
-variable "my_ip" {
-  description = "Your IP address for security group rules"
-  type        = string
+  default     = null
 }
 
 variable "stage" {
   description = "The stage of the project (e.g., dev, prod)"
   type        = string
   default     = "dev"
-}
-
-variable "ami_id" {
-  description = "The AMI ID for the EC2 instance"
-  type        = string
-}
-
-variable "instance_type" {
-  description = "The instance type for the EC2 instance"
-  type        = string
-  default     = "t2.micro"
-}
-
-
-variable "postgres_user" {
-  description = "The username for the Postgres database"
-  type        = string
-  default     = "admin"
-}
-
-variable "postgres_password" {
-  description = "The password for the Postgres database"
-  type        = string
 }
 
 variable "db_instance_class" {
@@ -66,13 +34,18 @@ variable "db_port" {
   default     = 5432
 }
 
-variable "ssh_key_path" {
-  description = "The path to the SSH public key"
-  type        = string
-  default     = "~/.ssh/id_rsa.pub"
-}
-
 variable "app_secrets" {
   type      = map(string)
   sensitive = true
+}
+
+variable "cloudflare_api_token" {
+  description = "The Cloudflare API token used to manage DNS records"
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudflare_zone_id" {
+  description = "The Cloudflare zone ID the DNS record will be created in"
+  type        = string
 }

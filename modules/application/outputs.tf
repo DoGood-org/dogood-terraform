@@ -1,13 +1,13 @@
 output "cluster_id" {
-  value = aws_ecs_cluster.main.id
+  value = module.ecs_cluster.id
 }
 
 output "service_name" {
-  value = aws_ecs_service.app.name
+  value = module.ecs_service.name
 }
 
 output "load_balancer_dns_name" {
-  value = aws_lb.app_lb.dns_name
+  value = module.alb.dns_name
 }
 
 output "secrets_manager_secret_arn" {
