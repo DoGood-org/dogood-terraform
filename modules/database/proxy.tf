@@ -11,10 +11,10 @@ resource "aws_db_proxy" "main" {
     iam_auth    = "DISABLED"
   }
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "${var.stage}-db-proxy"
     Service = "database"
-  })
+  }
 }
 
 resource "aws_db_proxy_default_target_group" "main" {

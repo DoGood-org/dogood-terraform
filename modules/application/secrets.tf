@@ -3,10 +3,10 @@ resource "aws_secretsmanager_secret" "app_env" {
   description             = "App environment variables"
   recovery_window_in_days = 0
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "/dogood/${var.stage}/env"
     Service = "application"
-  })
+  }
 }
 
 resource "aws_secretsmanager_secret_version" "app_env" {

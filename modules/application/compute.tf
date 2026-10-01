@@ -9,10 +9,10 @@ module "ecs_cluster" {
   setting                     = []
   create_security_group       = false
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "${var.stage}-cluster"
     Service = "application"
-  })
+  }
 }
 
 module "ecs_service" {
@@ -83,8 +83,8 @@ module "ecs_service" {
 
   depends_on = [module.alb]
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "${var.stage}-dogood-backend-service"
     Service = "application"
-  })
+  }
 }

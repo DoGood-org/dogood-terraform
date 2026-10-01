@@ -15,9 +15,9 @@ resource "aws_db_instance" "main" {
   backup_retention_period = 7
   backup_window           = "03:00-04:00"
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "${var.stage}-db-instance"
     Service = "database"
-  })
+  }
 }
 

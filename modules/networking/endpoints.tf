@@ -10,39 +10,37 @@ module "vpc_endpoints" {
       service             = "ecr.dkr"
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
-      tags = merge(local.default_tags, {
+      tags = {
         Name    = "${var.stage}-ecr-dkr-endpoint"
         Service = "networking"
-      })
+      }
     }
     ecr_api = {
       service             = "ecr.api"
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
-      tags = merge(local.default_tags, {
+      tags = {
         Name    = "${var.stage}-ecr-api-endpoint"
         Service = "networking"
-      })
+      }
     }
     logs = {
       service             = "logs"
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
-      tags = merge(local.default_tags, {
+      tags = {
         Name    = "${var.stage}-logs-endpoint"
         Service = "networking"
-      })
+      }
     }
     secretsmanager = {
       service             = "secretsmanager"
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
-      tags = merge(local.default_tags, {
+      tags = {
         Name    = "${var.stage}-secretsmanager-endpoint"
         Service = "networking"
-      })
+      }
     }
   }
-
-  tags = local.default_tags
 }

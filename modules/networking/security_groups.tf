@@ -32,10 +32,10 @@ module "alb_sg" {
     }
   }
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "${var.stage}-alb-sg"
     Service = "networking"
-  })
+  }
 }
 
 module "instance_sg" {
@@ -67,10 +67,10 @@ module "instance_sg" {
   # traffic (ECR/logs/Secrets Manager) is scoped separately via the
   # VPC interface endpoints and their own security group.
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "${var.stage}-instance-sg"
     Service = "networking"
-  })
+  }
 }
 
 module "db_sg" {
@@ -97,10 +97,10 @@ module "db_sg" {
     }
   }
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "${var.stage}-db-sg"
     Service = "networking"
-  })
+  }
 }
 
 module "vpc_endpoints_sg" {
@@ -124,8 +124,8 @@ module "vpc_endpoints_sg" {
   # Interface endpoint ENIs only answer inbound HTTPS requests from the VPC;
   # they never initiate outbound connections, so no egress is required.
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "${var.stage}-vpc-endpoints-sg"
     Service = "networking"
-  })
+  }
 }

@@ -22,30 +22,28 @@ module "vpc" {
 
   manage_default_security_group = false
 
-  igw_tags = merge(local.default_tags, {
+  igw_tags = {
     Name    = "${var.stage}-igw"
     Service = "networking"
-  })
+  }
 
-  public_route_table_tags = merge(local.default_tags, {
+  public_route_table_tags = {
     Name    = "${var.stage}-public-route-table"
     Service = "networking"
-  })
+  }
 
-  private_route_table_tags = merge(local.default_tags, {
+  private_route_table_tags = {
     Name    = "${var.stage}-private-route-table"
     Service = "networking"
-  })
-
-  tags = local.default_tags
+  }
 }
 
 resource "aws_db_subnet_group" "db_subnet_group" {
   name       = "${var.stage}-db-subnet-group"
   subnet_ids = module.vpc.private_subnets
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "${var.stage}-db-subnet-group"
     Service = "networking"
-  })
+  }
 }

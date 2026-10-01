@@ -19,6 +19,19 @@ terraform {
   }
 }
 
+provider "aws" {
+  region  = var.aws_region
+  profile = var.aws_profile
+
+  default_tags {
+    tags = {
+      Environment = var.stage
+      Project     = "dogood"
+      ManagedBy   = "terraform"
+    }
+  }
+}
+
 provider "cloudflare" {
   api_token = var.cloudflare_api_token
 }

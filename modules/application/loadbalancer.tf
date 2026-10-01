@@ -40,15 +40,15 @@ module "alb" {
       target_type       = "ip"
       create_attachment = false
 
-      tags = merge(local.default_tags, {
+      tags = {
         Name    = "${var.stage}-app-tg"
         Service = "application"
-      })
+      }
     }
   }
 
-  tags = merge(local.default_tags, {
+  tags = {
     Name    = "${var.stage}-app-lb"
     Service = "application"
-  })
+  }
 }
