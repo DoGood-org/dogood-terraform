@@ -23,9 +23,12 @@ module "alb_sg" {
   }
 
   egress_rules = {
-    all = {
-      ip_protocol = "-1"
-      cidr_ipv4   = "0.0.0.0/0"
+    app_port = {
+      from_port                    = 5000
+      to_port                      = 5000
+      ip_protocol                  = "tcp"
+      description                  = "To ECS tasks only"
+      referenced_security_group_id = module.instance_sg.id
     }
   }
 
@@ -59,6 +62,10 @@ module "instance_sg" {
       cidr_ipv4   = "0.0.0.0/0"
     }
   }
+  # Broad egress is intentional: the app calls external SaaS APIs
+  # (OpenAI, Stripe, SMTP) whose IP ranges aren't fixed. AWS service
+  # traffic (ECR/logs/Secrets Manager) is scoped separately via the
+  # VPC interface endpoints and their own security group.
 
   tags = merge(local.default_tags, {
     Name    = "${var.stage}-instance-sg"
@@ -114,12 +121,8 @@ module "vpc_endpoints_sg" {
     }
   }
 
-  egress_rules = {
-    all = {
-      ip_protocol = "-1"
-      cidr_ipv4   = "0.0.0.0/0"
-    }
-  }
+  # Interface endpoint ENIs only answer inbound HTTPS requests from the VPC;
+  # they never initiate outbound connections, so no egress is required.
 
   tags = merge(local.default_tags, {
     Name    = "${var.stage}-vpc-endpoints-sg"
