@@ -34,3 +34,6 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# Local task-tracking notes, not meant for version control
+TASKS.md
