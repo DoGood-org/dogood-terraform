@@ -11,6 +11,10 @@ resource "aws_db_instance" "main" {
   vpc_security_group_ids = [var.db_security_group_id]
   skip_final_snapshot    = true
 
+  multi_az                = true
+  backup_retention_period = 7
+  backup_window           = "03:00-04:00"
+
   tags = merge(local.default_tags, {
     Name    = "${var.stage}-db-instance"
     Service = "database"
