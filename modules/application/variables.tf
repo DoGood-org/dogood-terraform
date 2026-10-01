@@ -28,8 +28,9 @@ variable "app_secrets" {
 }
 
 variable "container_image" {
-  type    = string
-  default = "104363824351.dkr.ecr.us-west-1.amazonaws.com/dogood-backend:latest"
+  description = "Bootstrap image used only on initial creation of the ECS task definition. ignore_task_definition_changes is enabled so subsequent deployments (new image tags/revisions) are rolled out by the GitHub Actions pipeline via OIDC, not by Terraform."
+  type        = string
+  default     = "104363824351.dkr.ecr.us-west-1.amazonaws.com/dogood-backend:latest"
 }
 
 variable "container_port" {
