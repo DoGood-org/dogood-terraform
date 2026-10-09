@@ -24,8 +24,8 @@ module "alb_sg" {
 
   egress_rules = {
     app_port = {
-      from_port                    = 5000
-      to_port                      = 5000
+      from_port                    = var.app_port
+      to_port                      = var.app_port
       ip_protocol                  = "tcp"
       description                  = "To ECS tasks only"
       referenced_security_group_id = module.instance_sg.id
@@ -49,8 +49,8 @@ module "instance_sg" {
 
   ingress_rules = {
     app_port = {
-      from_port                    = 5000
-      to_port                      = 5000
+      from_port                    = var.app_port
+      to_port                      = var.app_port
       ip_protocol                  = "tcp"
       referenced_security_group_id = module.alb_sg.id
     }
@@ -62,10 +62,6 @@ module "instance_sg" {
       cidr_ipv4   = "0.0.0.0/0"
     }
   }
-  # Broad egress is intentional: the app calls external SaaS APIs
-  # (OpenAI, Stripe, SMTP) whose IP ranges aren't fixed. AWS service
-  # traffic (ECR/logs/Secrets Manager) is scoped separately via the
-  # VPC interface endpoints and their own security group.
 
   tags = {
     Name    = "${var.stage}-instance-sg"
@@ -78,7 +74,7 @@ module "db_sg" {
   version = "~> 6.0"
 
   name            = "${var.stage}-db-sg"
-  description     = "Security group for RDS instance and proxy"
+  description     = "Security group for the RDS instance"
   vpc_id          = module.vpc.vpc_id
   use_name_prefix = false
 
@@ -88,12 +84,6 @@ module "db_sg" {
       to_port                      = var.db_port
       ip_protocol                  = "tcp"
       referenced_security_group_id = module.instance_sg.id
-    }
-    self = {
-      from_port                    = var.db_port
-      to_port                      = var.db_port
-      ip_protocol                  = "tcp"
-      referenced_security_group_id = "self"
     }
   }
 

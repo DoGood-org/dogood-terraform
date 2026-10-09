@@ -6,10 +6,19 @@ module "vpc_endpoints" {
   security_group_ids = [module.vpc_endpoints_sg.id]
 
   endpoints = {
+    s3 = {
+      service         = "s3"
+      service_type    = "Gateway"
+      route_table_ids = module.vpc.private_route_table_ids
+      tags = {
+        Name    = "${var.stage}-s3-endpoint"
+        Service = "networking"
+      }
+    }
     ecr_dkr = {
       service             = "ecr.dkr"
       private_dns_enabled = true
-      subnet_ids          = module.vpc.private_subnets
+      subnet_ids          = local.endpoint_subnet_ids
       tags = {
         Name    = "${var.stage}-ecr-dkr-endpoint"
         Service = "networking"
@@ -18,7 +27,7 @@ module "vpc_endpoints" {
     ecr_api = {
       service             = "ecr.api"
       private_dns_enabled = true
-      subnet_ids          = module.vpc.private_subnets
+      subnet_ids          = local.endpoint_subnet_ids
       tags = {
         Name    = "${var.stage}-ecr-api-endpoint"
         Service = "networking"
@@ -27,7 +36,7 @@ module "vpc_endpoints" {
     logs = {
       service             = "logs"
       private_dns_enabled = true
-      subnet_ids          = module.vpc.private_subnets
+      subnet_ids          = local.endpoint_subnet_ids
       tags = {
         Name    = "${var.stage}-logs-endpoint"
         Service = "networking"
@@ -36,7 +45,7 @@ module "vpc_endpoints" {
     secretsmanager = {
       service             = "secretsmanager"
       private_dns_enabled = true
-      subnet_ids          = module.vpc.private_subnets
+      subnet_ids          = local.endpoint_subnet_ids
       tags = {
         Name    = "${var.stage}-secretsmanager-endpoint"
         Service = "networking"

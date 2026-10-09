@@ -40,6 +40,16 @@ module "alb" {
       target_type       = "ip"
       create_attachment = false
 
+      health_check = {
+        enabled             = true
+        path                = var.health_check_path
+        matcher             = "200"
+        interval            = 30
+        timeout             = 5
+        healthy_threshold   = 2
+        unhealthy_threshold = 3
+      }
+
       tags = {
         Name    = "${var.stage}-app-tg"
         Service = "application"
