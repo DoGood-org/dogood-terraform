@@ -112,6 +112,14 @@ variable "ecr_repository_name" {
   type        = string
 }
 
+# --- Monitoring ---
+
+variable "monitoring_enabled" {
+  description = "Deploy Grafana (CloudWatch data source) as an ECS service, reachable only through an SSM port-forwarding tunnel"
+  type        = bool
+  default     = false
+}
+
 # --- Application ---
 
 variable "app_secrets" {

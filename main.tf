@@ -47,6 +47,16 @@ module "application" {
   ecr_repository_arn   = data.aws_ecr_repository.backend.arn
 }
 
+module "monitoring" {
+  source = "./modules/monitoring"
+  count  = var.monitoring_enabled ? 1 : 0
+
+  stage       = var.stage
+  vpc_id      = module.network.vpc_id
+  subnet_id   = module.network.public_subnet_ids[0]
+  cluster_arn = module.application.cluster_arn
+}
+
 # module "cloudflare" {
 #   source = "./modules/cloudflare"
 #

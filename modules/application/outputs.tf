@@ -2,6 +2,10 @@ output "cluster_id" {
   value = module.ecs_cluster.id
 }
 
+output "cluster_arn" {
+  value = module.ecs_cluster.arn
+}
+
 output "service_name" {
   value = module.ecs_service.name
 }
