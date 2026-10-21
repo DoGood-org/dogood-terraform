@@ -10,8 +10,8 @@ output "db_endpoint" {
   value = module.database.db_endpoint
 }
 
-output "ecs_cluster_id" {
-  value = module.application.cluster_id
+output "ecs_cluster_arn" {
+  value = module.application.cluster_arn
 }
 
 output "ecs_service_name" {
@@ -30,6 +30,3 @@ output "grafana_admin_secret_arn" {
   value = one(module.monitoring[*].admin_secret_arn)
 }
 
-# output "app_hostname" {
-#   value = module.cloudflare.hostname
-# }

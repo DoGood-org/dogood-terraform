@@ -7,6 +7,9 @@ resource "aws_iam_role" "ecs_execution" {
       Effect    = "Allow"
       Principal = { Service = "ecs-tasks.amazonaws.com" }
       Action    = "sts:AssumeRole"
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
+      }
     }]
   })
 

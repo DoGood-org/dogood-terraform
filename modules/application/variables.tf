@@ -27,73 +27,55 @@ variable "app_secrets" {
   sensitive = true
 }
 
+variable "secret_recovery_window_days" {
+  type = number
+}
+
 variable "container_image" {
-  description = "Bootstrap image used only on initial creation of the ECS task definition. ignore_task_definition_changes is enabled so subsequent deployments (new image tags/revisions) are rolled out by the GitHub Actions pipeline via OIDC, not by Terraform."
+  description = "Initial image; later revisions come from CI"
   type        = string
 }
 
 variable "ecr_repository_arn" {
-  description = "ARN of the ECR repository the execution role may pull from"
-  type        = string
+  type = string
 }
 
 variable "container_port" {
-  type    = number
-  default = 5000
+  type = number
 }
 
 variable "db_address" {
-  description = "Private hostname of the RDS instance"
-  type        = string
+  type = string
 }
 
 variable "db_port" {
-  description = "Port of the RDS instance"
-  type        = number
+  type = number
 }
 
 variable "db_master_secret_arn" {
-  description = "ARN of the RDS-managed master credentials secret"
-  type        = string
+  type = string
 }
 
 variable "single_az" {
-  description = "Run ECS tasks only in the first private subnet's AZ"
-  type        = bool
+  type = bool
 }
 
 variable "task_cpu" {
-  description = "Fargate task CPU units"
-  type        = number
-  default     = 256
+  type = number
 }
 
 variable "task_memory" {
-  description = "Fargate task memory (MiB)"
-  type        = number
-  default     = 512
+  type = number
 }
 
 variable "min_capacity" {
-  description = "Minimum number of running ECS tasks"
-  type        = number
-  default     = 1
+  type = number
 }
 
 variable "max_capacity" {
-  description = "Maximum number of running ECS tasks"
-  type        = number
-  default     = 1
+  type = number
 }
 
 variable "health_check_path" {
-  description = "ALB target group health check path"
-  type        = string
-  default     = "/health/liveness"
-}
-
-variable "health_check_grace_period_seconds" {
-  description = "Seconds ECS ignores failing ALB health checks after a task starts"
-  type        = number
-  default     = 60
+  type = string
 }

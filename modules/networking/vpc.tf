@@ -12,14 +12,7 @@ module "vpc" {
   public_subnet_names  = [for i in range(length(local.public_subnet_cidrs)) : "${var.stage}-public-subnet-${i + 1}"]
   private_subnet_names = [for i in range(length(local.private_subnet_cidrs)) : "${var.stage}-private-subnet-${i + 1}"]
 
-  create_igw = true
-
-  # No NAT gateway: private subnets rely on VPC interface endpoints for AWS
-  # service access, matching the original hand-written configuration.
-  enable_nat_gateway = false
-
-  create_database_subnet_group = false
-
+  enable_nat_gateway            = false
   manage_default_security_group = false
 
   igw_tags = {

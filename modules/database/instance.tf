@@ -2,15 +2,16 @@ resource "aws_db_instance" "main" {
   identifier                  = "${var.stage}-db-instance"
   allocated_storage           = 20
   engine                      = "postgres"
-  engine_version              = var.db_engine_version
+  engine_version              = "17.6"
   instance_class              = var.db_instance_class
   port                        = var.db_port
-  db_name                     = var.app_secrets["POSTGRES_DB"]
-  username                    = var.app_secrets["POSTGRES_USER"]
+  db_name                     = var.db_name
+  username                    = var.db_username
   manage_master_user_password = true
   db_subnet_group_name        = var.db_subnet_group_name
   vpc_security_group_ids      = [var.db_security_group_id]
-  skip_final_snapshot         = true
+  skip_final_snapshot         = var.skip_final_snapshot
+  final_snapshot_identifier   = var.skip_final_snapshot ? null : "${var.stage}-db-instance-final"
   deletion_protection         = var.deletion_protection
   storage_encrypted           = true
 

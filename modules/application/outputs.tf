@@ -1,7 +1,3 @@
-output "cluster_id" {
-  value = module.ecs_cluster.id
-}
-
 output "cluster_arn" {
   value = module.ecs_cluster.arn
 }

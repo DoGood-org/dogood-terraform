@@ -1,18 +1,18 @@
 # --- General ---
 
 variable "stage" {
-  description = "The stage of the project (e.g., dev, prod). Must match the selected Terraform workspace."
+  description = "Stage name; must match the workspace"
   type        = string
 }
 
 variable "aws_region" {
-  description = "The AWS region to deploy resources in"
+  description = "AWS region"
   type        = string
   default     = "us-west-1"
 }
 
 variable "aws_profile" {
-  description = "Named AWS CLI profile to use for authentication (from ~/.aws/config or ~/.aws/credentials). Leave empty to use the default credential chain."
+  description = "AWS CLI profile; null uses the default chain"
   type        = string
   default     = null
 }
@@ -20,13 +20,13 @@ variable "aws_profile" {
 # --- Networking ---
 
 variable "vpc_cidr_block" {
-  description = "The CIDR block for the VPC"
+  description = "VPC CIDR"
   type        = string
   default     = "10.0.0.0/16"
 }
 
 variable "vpc_endpoints_single_az" {
-  description = "Place interface VPC endpoints only in the first AZ (same AZ as single-AZ ECS tasks)"
+  description = "Interface endpoints in the first AZ only"
   type        = bool
   default     = false
 }
@@ -34,39 +34,45 @@ variable "vpc_endpoints_single_az" {
 # --- Database (RDS) ---
 
 variable "db_instance_class" {
-  description = "The instance class for the database"
+  description = "RDS instance class"
   type        = string
   default     = "db.t3.micro"
 }
 
 variable "db_port" {
-  description = "The port for the database"
+  description = "RDS port"
   type        = number
   default     = 5432
 }
 
 variable "db_multi_az" {
-  description = "Deploy RDS with a standby in a second AZ. When false, RDS is placed in the first AZ."
+  description = "RDS Multi-AZ; false pins RDS to the first AZ"
   type        = bool
   default     = true
 }
 
 variable "db_read_replica_count" {
-  description = "Number of RDS read replicas"
+  description = "RDS read replicas"
   type        = number
   default     = 0
 }
 
 variable "db_deletion_protection" {
-  description = "Enables RDS deletion protection. Set per workspace in its tfvars (e.g. false for dev, true for prod)."
+  description = "RDS deletion protection"
   type        = bool
   default     = true
+}
+
+variable "db_skip_final_snapshot" {
+  description = "Skip the RDS final snapshot on delete"
+  type        = bool
+  default     = false
 }
 
 # --- Compute (ECS Fargate) ---
 
 variable "ecs_single_az" {
-  description = "Run ECS tasks only in the first AZ"
+  description = "ECS tasks in the first AZ only"
   type        = bool
   default     = false
 }
@@ -84,21 +90,21 @@ variable "ecs_task_memory" {
 }
 
 variable "ecs_min_capacity" {
-  description = "Minimum number of running ECS tasks"
+  description = "Minimum ECS tasks"
   type        = number
   default     = 1
 }
 
 variable "ecs_max_capacity" {
-  description = "Maximum number of running ECS tasks"
+  description = "Maximum ECS tasks"
   type        = number
   default     = 1
 }
 
 variable "app_port" {
-  description = "Port the backend listens on (injected as PORT)"
+  description = "Backend port (PORT)"
   type        = number
-  default     = 5000
+  default     = 3000
 }
 
 variable "app_health_check_path" {
@@ -108,14 +114,20 @@ variable "app_health_check_path" {
 }
 
 variable "ecr_repository_name" {
-  description = "ECR repository with the backend image for this stage (must end with -<stage>, e.g. dogood/dogood-backend-dev; only the :latest tag is used, for the initial task definition)"
+  description = "Backend ECR repository, ending with -<stage>"
   type        = string
 }
 
 # --- Monitoring ---
 
 variable "monitoring_enabled" {
-  description = "Deploy Grafana (CloudWatch data source) as an ECS service, reachable only through an SSM port-forwarding tunnel"
+  description = "Deploy Grafana"
+  type        = bool
+  default     = false
+}
+
+variable "grafana_efs_enabled" {
+  description = "Keep Grafana data on EFS"
   type        = bool
   default     = false
 }
@@ -127,13 +139,9 @@ variable "app_secrets" {
   sensitive = true
 }
 
-# variable "cloudflare_api_token" {
-#   description = "The Cloudflare API token used to manage DNS records"
-#   type        = string
-#   sensitive   = true
-# }
-#
-# variable "cloudflare_zone_id" {
-#   description = "The Cloudflare zone ID the DNS record will be created in"
-#   type        = string
-# }
+variable "app_secret_recovery_window_days" {
+  description = "Recovery window for /dogood/<stage>/env; 0 deletes immediately"
+  type        = number
+  default     = 7
+}
+

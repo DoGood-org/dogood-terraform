@@ -1,7 +1,7 @@
 resource "aws_secretsmanager_secret" "app_env" {
   name                    = "/dogood/${var.stage}/env"
   description             = "App environment variables"
-  recovery_window_in_days = 0
+  recovery_window_in_days = var.secret_recovery_window_days
 
   tags = {
     Name    = "/dogood/${var.stage}/env"

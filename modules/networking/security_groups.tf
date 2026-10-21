@@ -57,9 +57,26 @@ module "instance_sg" {
   }
 
   egress_rules = {
-    all = {
-      ip_protocol = "-1"
-      cidr_ipv4   = "0.0.0.0/0"
+    vpc_endpoints = {
+      from_port                    = 443
+      to_port                      = 443
+      ip_protocol                  = "tcp"
+      description                  = "Interface endpoints"
+      referenced_security_group_id = module.vpc_endpoints_sg.id
+    }
+    s3 = {
+      from_port      = 443
+      to_port        = 443
+      ip_protocol    = "tcp"
+      description    = "S3 gateway (ECR layers)"
+      prefix_list_id = module.vpc_endpoints.endpoints["s3"].prefix_list_id
+    }
+    db = {
+      from_port                    = var.db_port
+      to_port                      = var.db_port
+      ip_protocol                  = "tcp"
+      description                  = "RDS"
+      referenced_security_group_id = module.db_sg.id
     }
   }
 
@@ -110,9 +127,6 @@ module "vpc_endpoints_sg" {
       cidr_ipv4   = var.vpc_cidr_block
     }
   }
-
-  # Interface endpoint ENIs only answer inbound HTTPS requests from the VPC;
-  # they never initiate outbound connections, so no egress is required.
 
   tags = {
     Name    = "${var.stage}-vpc-endpoints-sg"

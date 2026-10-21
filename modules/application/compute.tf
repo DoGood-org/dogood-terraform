@@ -7,12 +7,20 @@ locals {
   task_subnet_ids = var.single_az ? slice(var.private_subnet_ids, 0, 1) : var.private_subnet_ids
 }
 
+# Service ordering barrier
+resource "terraform_data" "service_prerequisites" {
+  input = aws_iam_role.ecs_execution.arn
+
+  depends_on = [module.alb, aws_iam_role_policy.ecs_execution, aws_secretsmanager_secret_version.app_env]
+}
+
 module "ecs_cluster" {
   source  = "terraform-aws-modules/ecs/aws//modules/cluster"
   version = "~> 7.0"
 
   name = "${var.stage}-cluster"
 
+  # Container Insights off
   create_cloudwatch_log_group = false
   configuration               = null
   setting                     = []
@@ -35,13 +43,9 @@ module "ecs_service" {
   cpu    = var.task_cpu
   memory = var.task_memory
 
-  requires_compatibilities = ["FARGATE"]
-  launch_type              = "FARGATE"
-  network_mode             = "awsvpc"
-
   create_task_exec_iam_role = false
   create_task_exec_policy   = false
-  task_exec_iam_role_arn    = aws_iam_role.ecs_execution.arn
+  task_exec_iam_role_arn    = terraform_data.service_prerequisites.output
 
   create_iam_role       = false
   create_tasks_iam_role = false
@@ -96,7 +100,7 @@ module "ecs_service" {
   }
 
   desired_count                     = var.min_capacity
-  health_check_grace_period_seconds = var.health_check_grace_period_seconds
+  health_check_grace_period_seconds = 60
 
   enable_autoscaling       = true
   autoscaling_min_capacity = var.min_capacity
@@ -107,7 +111,6 @@ module "ecs_service" {
   subnet_ids            = local.task_subnet_ids
   create_security_group = false
   security_group_ids    = [var.instance_sg_id]
-  assign_public_ip      = false
 
   load_balancer = {
     service = {
@@ -116,9 +119,6 @@ module "ecs_service" {
       container_port   = var.container_port
     }
   }
-
-
-  depends_on = [module.alb, aws_iam_role_policy.ecs_execution, aws_secretsmanager_secret_version.app_env]
 
   tags = {
     Name    = "${var.stage}-dogood-backend-service"

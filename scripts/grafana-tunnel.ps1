@@ -28,7 +28,7 @@ $TaskId = ($TaskArn -split "/")[-1]
 
 Write-Host "Grafana: http://localhost:$LocalPort (admin password: secret /dogood/$Stage/grafana)"
 
-# Shorthand syntax instead of JSON: Windows PowerShell 5.1 strips inner quotes from native arguments.
+# Shorthand: PS 5.1 strips JSON quotes
 aws ssm start-session `
   --target "ecs:${Cluster}_${TaskId}_${RuntimeId}" `
   --document-name AWS-StartPortForwardingSession `

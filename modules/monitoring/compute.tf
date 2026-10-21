@@ -1,6 +1,4 @@
 locals {
-  grafana_port = 3000
-
   log_group_name = "/aws/ecs/${var.stage}/grafana"
   log_group_arn  = "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:${local.log_group_name}"
 }
@@ -9,16 +7,13 @@ module "grafana" {
   source  = "terraform-aws-modules/ecs/aws//modules/service"
   version = "~> 7.0"
 
-  name        = "grafana"
-  family      = "${var.stage}-grafana"
-  cluster_arn = var.cluster_arn
+  name         = "grafana"
+  family       = "${var.stage}-grafana"
+  cluster_arn  = var.cluster_arn
+  track_latest = false
 
-  cpu    = var.task_cpu
-  memory = var.task_memory
-
-  requires_compatibilities = ["FARGATE"]
-  launch_type              = "FARGATE"
-  network_mode             = "awsvpc"
+  cpu    = 256
+  memory = 1024
 
   runtime_platform = {
     cpu_architecture        = "ARM64"
@@ -37,15 +32,17 @@ module "grafana" {
 
   container_definitions = {
     grafana = {
-      image     = var.grafana_image
+      image     = "grafana/grafana:13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f"
       essential = true
 
-      # The image's ENTRYPOINT is /run.sh; start.sh writes provisioning files and then execs it.
-      entrypoint = ["sh", "-c"]
-      command    = [file("${path.module}/templates/start.sh")]
-
-      # Grafana writes its SQLite database and plugins under /var/lib/grafana.
+      entrypoint             = ["sh", "-c"]
+      command                = [file("${path.module}/templates/start.sh")]
       readonlyRootFilesystem = false
+
+      mountPoints = var.efs_enabled ? [{
+        sourceVolume  = "grafana-data"
+        containerPath = "/var/lib/grafana"
+      }] : []
 
       linuxParameters = {
         initProcessEnabled = true
@@ -54,15 +51,12 @@ module "grafana" {
       cloudwatch_log_group_name = local.log_group_name
 
       portMappings = [{
-        containerPort = local.grafana_port
-        hostPort      = local.grafana_port
+        containerPort = 3000
+        hostPort      = 3000
         protocol      = "tcp"
       }]
 
-      # Only settings that differ from Grafana's defaults (port 3000, admin user,
-      # no sign-up/anonymous/embedding are already the defaults).
       environment = [
-        # Default provisioning path is under /etc and not writable by the grafana user.
         { name = "GF_PATHS_PROVISIONING", value = "/var/lib/grafana/provisioning" },
         { name = "GF_SECURITY_DISABLE_GRAVATAR", value = "true" },
         { name = "GF_SNAPSHOTS_EXTERNAL_ENABLED", value = "false" },
@@ -71,7 +65,6 @@ module "grafana" {
         { name = "GF_ANALYTICS_CHECK_FOR_UPDATES", value = "false" },
         { name = "GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES", value = "false" },
         { name = "GF_NEWS_NEWS_FEED_ENABLED", value = "false" },
-        # Data sources may only use the task role, not user-entered keys or assumed roles.
         { name = "GF_AWS_ALLOWED_AUTH_PROVIDERS", value = "default" },
         { name = "GF_AWS_ASSUME_ROLE_ENABLED", value = "false" },
         {
@@ -89,10 +82,29 @@ module "grafana" {
     }
   }
 
+  volume = {
+    for name, config in {
+      grafana-data = {
+        efs_volume_configuration = {
+          file_system_id     = one(aws_efs_file_system.grafana[*].id)
+          transit_encryption = "ENABLED"
+          authorization_config = {
+            access_point_id = one(aws_efs_access_point.grafana[*].id)
+          }
+        }
+      }
+    } : name => config if var.efs_enabled
+  }
+
   deployment_circuit_breaker = {
     enable   = true
     rollback = true
   }
+
+  # Single SQLite writer on EFS
+  deployment_maximum_percent         = var.efs_enabled ? 100 : 200
+  deployment_minimum_healthy_percent = var.efs_enabled ? 0 : 66
+  availability_zone_rebalancing      = "DISABLED"
 
   desired_count      = 1
   enable_autoscaling = false
@@ -102,7 +114,7 @@ module "grafana" {
   security_group_ids    = [module.grafana_sg.id]
   assign_public_ip      = true
 
-  depends_on = [aws_iam_role_policy.grafana_execution, aws_secretsmanager_secret_version.grafana]
+  depends_on = [aws_iam_role_policy.grafana_execution, aws_secretsmanager_secret_version.grafana, aws_efs_mount_target.grafana]
 
   tags = {
     Name    = "${var.stage}-grafana-service"

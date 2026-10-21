@@ -1,6 +1,4 @@
-# The password is ephemeral and written write-only, so it never lands in state.
-# Bump secret_string_wo_version to rotate it; Grafana picks it up on the next
-# task start (its SQLite database is ephemeral and re-initialised every start).
+# Admin password (write-only)
 ephemeral "aws_secretsmanager_random_password" "grafana_admin" {
   password_length     = 32
   exclude_punctuation = true

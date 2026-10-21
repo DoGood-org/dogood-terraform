@@ -11,11 +11,9 @@ variable "db_port" {
 }
 
 variable "app_port" {
-  description = "Port the application container listens on"
-  type        = number
+  type = number
 }
 
 variable "vpc_endpoints_single_az" {
-  description = "Place interface VPC endpoints only in the first private subnet's AZ"
-  type        = bool
+  type = bool
 }
