@@ -56,29 +56,36 @@ module "instance_sg" {
     }
   }
 
-  egress_rules = {
-    vpc_endpoints = {
-      from_port                    = 443
-      to_port                      = 443
-      ip_protocol                  = "tcp"
-      description                  = "Interface endpoints"
-      referenced_security_group_id = module.vpc_endpoints_sg.id
-    }
-    s3 = {
-      from_port      = 443
-      to_port        = 443
-      ip_protocol    = "tcp"
-      description    = "S3 gateway (ECR layers)"
-      prefix_list_id = module.vpc_endpoints.endpoints["s3"].prefix_list_id
-    }
-    db = {
-      from_port                    = var.db_port
-      to_port                      = var.db_port
-      ip_protocol                  = "tcp"
-      description                  = "RDS"
-      referenced_security_group_id = module.db_sg.id
-    }
-  }
+  egress_rules = merge(
+    {
+      db = {
+        from_port                    = var.db_port
+        to_port                      = var.db_port
+        ip_protocol                  = "tcp"
+        description                  = "RDS"
+        referenced_security_group_id = module.db_sg.id
+      }
+    },
+    # AWS APIs (ECR, CloudWatch Logs, Secrets Manager) and third-party services via NAT
+    {
+      for port in var.app_egress_ports : "internet_${port}" => {
+        from_port   = port
+        to_port     = port
+        ip_protocol = "tcp"
+        description = "Internet via NAT"
+        cidr_ipv4   = "0.0.0.0/0"
+      }
+    },
+    var.db_proxy_enabled ? {
+      db_proxy = {
+        from_port                    = var.db_port
+        to_port                      = var.db_port
+        ip_protocol                  = "tcp"
+        description                  = "RDS Proxy"
+        referenced_security_group_id = module.db_proxy_sg.id
+      }
+    } : {}
+  )
 
   tags = {
     Name    = "${var.stage}-instance-sg"
@@ -95,6 +102,42 @@ module "db_sg" {
   vpc_id          = module.vpc.vpc_id
   use_name_prefix = false
 
+  ingress_rules = merge(
+    {
+      from_instances = {
+        from_port                    = var.db_port
+        to_port                      = var.db_port
+        ip_protocol                  = "tcp"
+        referenced_security_group_id = module.instance_sg.id
+      }
+    },
+    var.db_proxy_enabled ? {
+      from_db_proxy = {
+        from_port                    = var.db_port
+        to_port                      = var.db_port
+        ip_protocol                  = "tcp"
+        referenced_security_group_id = module.db_proxy_sg.id
+      }
+    } : {}
+  )
+
+  tags = {
+    Name    = "${var.stage}-db-sg"
+    Service = "networking"
+  }
+}
+
+module "db_proxy_sg" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 6.0"
+
+  create = var.db_proxy_enabled
+
+  name            = "${var.stage}-db-proxy-sg"
+  description     = "Security group for the RDS Proxy"
+  vpc_id          = module.vpc.vpc_id
+  use_name_prefix = false
+
   ingress_rules = {
     from_instances = {
       from_port                    = var.db_port
@@ -104,32 +147,25 @@ module "db_sg" {
     }
   }
 
-  tags = {
-    Name    = "${var.stage}-db-sg"
-    Service = "networking"
-  }
-}
-
-module "vpc_endpoints_sg" {
-  source  = "terraform-aws-modules/security-group/aws"
-  version = "~> 6.0"
-
-  name            = "${var.stage}-vpc-endpoints-sg"
-  description     = "Security group for VPC interface endpoints"
-  vpc_id          = module.vpc.vpc_id
-  use_name_prefix = false
-
-  ingress_rules = {
-    https = {
+  egress_rules = {
+    db = {
+      from_port                    = var.db_port
+      to_port                      = var.db_port
+      ip_protocol                  = "tcp"
+      description                  = "RDS"
+      referenced_security_group_id = module.db_sg.id
+    }
+    secretsmanager = {
       from_port   = 443
       to_port     = 443
       ip_protocol = "tcp"
-      cidr_ipv4   = var.vpc_cidr_block
+      description = "Secrets Manager via NAT (DB credentials)"
+      cidr_ipv4   = "0.0.0.0/0"
     }
   }
 
   tags = {
-    Name    = "${var.stage}-vpc-endpoints-sg"
+    Name    = "${var.stage}-db-proxy-sg"
     Service = "networking"
   }
 }

@@ -15,7 +15,7 @@ resource "aws_iam_role" "ecs_execution" {
 
   tags = {
     Name    = "${var.stage}-ecs-execution-role"
-    Service = "application"
+    Service = "backend"
   }
 }
 

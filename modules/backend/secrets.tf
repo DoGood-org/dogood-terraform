@@ -5,7 +5,7 @@ resource "aws_secretsmanager_secret" "app_env" {
 
   tags = {
     Name    = "/dogood/${var.stage}/env"
-    Service = "application"
+    Service = "backend"
   }
 }
 

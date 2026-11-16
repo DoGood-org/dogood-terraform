@@ -7,11 +7,23 @@ locals {
   task_subnet_ids = var.single_az ? slice(var.private_subnet_ids, 0, 1) : var.private_subnet_ids
 }
 
-# Service ordering barrier
+# Ordering barriers. The ECS module creates task definitions create_before_destroy, and
+# Terraform forces that onto everything they depend on. Keeping the ALB out of the task
+# definition's dependencies lets the ALB be replaced destroy-first (a target group can
+# belong to only one ALB, and the name is reused).
+
+# Task definition: execution role with its policy and the app secret
 resource "terraform_data" "service_prerequisites" {
   input = aws_iam_role.ecs_execution.arn
 
-  depends_on = [module.alb, aws_iam_role_policy.ecs_execution, aws_secretsmanager_secret_version.app_env]
+  depends_on = [aws_iam_role_policy.ecs_execution, aws_secretsmanager_secret_version.app_env]
+}
+
+# Service: the target group must be attached to a listener before the service registers tasks
+resource "terraform_data" "target_group" {
+  input = { for key, alb in module.alb : key => alb.target_groups["app"].arn }
+
+  depends_on = [module.alb]
 }
 
 module "ecs_cluster" {
@@ -28,7 +40,7 @@ module "ecs_cluster" {
 
   tags = {
     Name    = "${var.stage}-cluster"
-    Service = "application"
+    Service = "backend"
   }
 }
 
@@ -106,15 +118,37 @@ module "ecs_service" {
   autoscaling_min_capacity = var.min_capacity
   autoscaling_max_capacity = var.max_capacity
 
+  # Same keys as the module defaults, so existing policies are updated, not replaced
+  autoscaling_policies = {
+    cpu = {
+      policy_type = "TargetTrackingScaling"
+      target_tracking_scaling_policy_configuration = {
+        predefined_metric_specification = {
+          predefined_metric_type = "ECSServiceAverageCPUUtilization"
+        }
+        target_value = var.autoscaling_target_cpu_utilization
+      }
+    }
+    memory = {
+      policy_type = "TargetTrackingScaling"
+      target_tracking_scaling_policy_configuration = {
+        predefined_metric_specification = {
+          predefined_metric_type = "ECSServiceAverageMemoryUtilization"
+        }
+      }
+    }
+  }
+
   ignore_task_definition_changes = true
 
   subnet_ids            = local.task_subnet_ids
   create_security_group = false
   security_group_ids    = [var.instance_sg_id]
 
+  # Tasks register in the target group of every enabled ALB
   load_balancer = {
-    service = {
-      target_group_arn = module.alb.target_groups["app"].arn
+    for key in keys(local.albs) : key => {
+      target_group_arn = terraform_data.target_group.output[key]
       container_name   = "dogood-backend"
       container_port   = var.container_port
     }
@@ -122,6 +156,6 @@ module "ecs_service" {
 
   tags = {
     Name    = "${var.stage}-dogood-backend-service"
-    Service = "application"
+    Service = "backend"
   }
 }

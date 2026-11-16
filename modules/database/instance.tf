@@ -1,8 +1,11 @@
 resource "aws_db_instance" "main" {
-  identifier                  = "${var.stage}-db-instance"
-  allocated_storage           = 20
-  engine                      = "postgres"
-  engine_version              = "17.6"
+  identifier        = "${var.stage}-db-instance"
+  allocated_storage = 20
+  engine            = "postgres"
+  # Explicit target for the 17 -> 18 upgrade; after it, "18" avoids drift on auto minor upgrades
+  engine_version              = "18.6"
+  allow_major_version_upgrade = true
+  apply_immediately           = var.apply_immediately
   instance_class              = var.db_instance_class
   port                        = var.db_port
   db_name                     = var.db_name

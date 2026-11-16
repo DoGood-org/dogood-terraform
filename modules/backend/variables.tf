@@ -76,6 +76,21 @@ variable "max_capacity" {
   type = number
 }
 
+variable "autoscaling_target_cpu_utilization" {
+  description = "Target average CPU (%) for the ECS service"
+  type        = number
+}
+
 variable "health_check_path" {
   type = string
+}
+
+variable "public_alb_enabled" {
+  description = "Internet-facing ALB in the public subnets"
+  type        = bool
+}
+
+variable "internal_alb_enabled" {
+  description = "Internal ALB in the private subnets (reachable from the VPC only)"
+  type        = bool
 }

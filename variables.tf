@@ -25,10 +25,16 @@ variable "vpc_cidr_block" {
   default     = "10.0.0.0/16"
 }
 
-variable "vpc_endpoints_single_az" {
-  description = "Interface endpoints in the first AZ only"
-  type        = bool
-  default     = false
+variable "nat_instance_type" {
+  description = "fck-nat instance type (internet egress for private subnets)"
+  type        = string
+  default     = "t4g.nano"
+}
+
+variable "app_egress_ports" {
+  description = "TCP ports ECS tasks may reach on the internet (443; add 587/465 for SMTP)"
+  type        = list(number)
+  default     = [443]
 }
 
 # --- Database (RDS) ---
@@ -69,6 +75,18 @@ variable "db_skip_final_snapshot" {
   default     = false
 }
 
+variable "db_apply_immediately" {
+  description = "Apply RDS changes (version, class, ...) immediately; may cause downtime"
+  type        = bool
+  default     = false
+}
+
+variable "db_proxy_enabled" {
+  description = "RDS Proxy in front of the primary; the app connects through it"
+  type        = bool
+  default     = false
+}
+
 # --- Compute (ECS Fargate) ---
 
 variable "ecs_single_az" {
@@ -101,6 +119,17 @@ variable "ecs_max_capacity" {
   default     = 1
 }
 
+variable "ecs_autoscaling_target_cpu_utilization" {
+  description = "Target average CPU (%) for ECS autoscaling"
+  type        = number
+  default     = 75
+
+  validation {
+    condition     = var.ecs_autoscaling_target_cpu_utilization > 0 && var.ecs_autoscaling_target_cpu_utilization <= 100
+    error_message = "ecs_autoscaling_target_cpu_utilization must be between 1 and 100."
+  }
+}
+
 variable "app_port" {
   description = "Backend port (PORT)"
   type        = number
@@ -111,6 +140,23 @@ variable "app_health_check_path" {
   description = "ALB health check path"
   type        = string
   default     = "/health/liveness"
+}
+
+variable "alb_public_enabled" {
+  description = "Internet-facing ALB in the public subnets"
+  type        = bool
+  default     = true
+}
+
+variable "alb_internal_enabled" {
+  description = "Internal ALB in the private subnets (VPC only)"
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = var.alb_public_enabled || var.alb_internal_enabled
+    error_message = "Enable at least one ALB (alb_public_enabled or alb_internal_enabled)."
+  }
 }
 
 variable "ecr_repository_name" {

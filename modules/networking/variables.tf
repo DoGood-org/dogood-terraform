@@ -14,6 +14,15 @@ variable "app_port" {
   type = number
 }
 
-variable "vpc_endpoints_single_az" {
+variable "nat_instance_type" {
+  type = string
+}
+
+variable "app_egress_ports" {
+  description = "TCP ports the tasks may reach on the internet through the NAT instance"
+  type        = list(number)
+}
+
+variable "db_proxy_enabled" {
   type = bool
 }

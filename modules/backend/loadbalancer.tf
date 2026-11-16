@@ -1,12 +1,41 @@
+locals {
+  # Public ALB in the public subnets, internal ALB in the private subnets.
+  # A target group can belong to one ALB only, so each ALB has its own.
+  albs = {
+    for key, cfg in {
+      public = {
+        enabled  = var.public_alb_enabled
+        internal = false
+        subnets  = var.public_subnet_ids
+        prefix   = "${var.stage}-app"
+      }
+      internal = {
+        enabled  = var.internal_alb_enabled
+        internal = true
+        subnets  = var.private_subnet_ids
+        prefix   = "${var.stage}-int"
+      }
+    } : key => cfg if cfg.enabled
+  }
+}
+
+# Single ALB before both toggles existed
+moved {
+  from = module.alb
+  to   = module.alb["public"]
+}
+
 module "alb" {
   source  = "terraform-aws-modules/alb/aws"
   version = "~> 10.0"
 
-  name    = "${var.stage}-app-lb"
-  vpc_id  = var.vpc_id
-  subnets = var.public_subnet_ids
+  for_each = local.albs
 
-  internal              = false
+  name    = "${each.value.prefix}-lb"
+  vpc_id  = var.vpc_id
+  subnets = each.value.subnets
+
+  internal              = each.value.internal
   load_balancer_type    = "application"
   security_groups       = [var.alb_sg_id]
   create_security_group = false
@@ -34,7 +63,7 @@ module "alb" {
 
   target_groups = {
     app = {
-      name              = "${var.stage}-app-tg"
+      name              = "${each.value.prefix}-tg"
       protocol          = "HTTP"
       port              = var.container_port
       target_type       = "ip"
@@ -51,14 +80,14 @@ module "alb" {
       }
 
       tags = {
-        Name    = "${var.stage}-app-tg"
-        Service = "application"
+        Name    = "${each.value.prefix}-tg"
+        Service = "backend"
       }
     }
   }
 
   tags = {
-    Name    = "${var.stage}-app-lb"
-    Service = "application"
+    Name    = "${each.value.prefix}-lb"
+    Service = "backend"
   }
 }

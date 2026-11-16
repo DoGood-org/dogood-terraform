@@ -5,29 +5,32 @@ IaaC for deploying the DoGood AWS infrastructure (ECS Fargate + RDS PostgreSQL) 
 ## Structure
 
 - `main.tf` wires the modules together and keeps the root module thin.
-- `modules/networking` owns the VPC, public/private subnets, security groups, the DB subnet group and VPC endpoints (S3 gateway; ECR, CloudWatch Logs, Secrets Manager interface endpoints).
+- `modules/networking` owns the VPC, public/private subnets, security groups, the DB subnet group, the S3 gateway endpoint and the fck-nat NAT instance.
 - `modules/database` owns the PostgreSQL RDS instance. The master password is managed by RDS in Secrets Manager.
-- `modules/application` owns the ECS cluster and Fargate service, the ALB and the Secrets Manager secret with app environment variables.
+- `modules/backend` owns the ECS cluster and Fargate service, the ALB and the Secrets Manager secret with app environment variables.
 - `modules/monitoring` owns the Grafana ECS service (CloudWatch data source), its security group, IAM roles and admin secret. Enabled per stage with `monitoring_enabled`.
-- `modules/cloudflare` owns the DNS record pointing the stage subdomain at the ALB. **Not wired in yet**: enabling it needs the `cloudflare` provider (`~> 4.0`), `cloudflare_api_token` / `cloudflare_zone_id` variables and a `module "cloudflare"` block in `main.tf` (`zone_id`, `subdomain = var.stage`, `target = module.application.load_balancer_dns_name`).
+- `modules/frontend` owns the Amplify app `dogood-frontend` (Next.js SSR, `WEB_COMPUTE`), its branches and the `dogood.ink` domain association. It is used only by the separate root module `frontend/` (own state `frontend/terraform.tfstate`), never by the stage workspaces, so destroying a stage can't delete it; the app and domain also have `prevent_destroy`.
+- `modules/cloudflare` owns the DNS record pointing the stage subdomain at the ALB. **Not wired in yet**: enabling it needs the `cloudflare` provider (`~> 4.0`), `cloudflare_api_token` / `cloudflare_zone_id` variables and a `module "cloudflare"` block in `main.tf` (`zone_id`, `subdomain = var.stage`, `target = module.backend.load_balancer_dns_name`).
 
 ## Network model
 
-Private subnets have **no NAT gateway**. ECS tasks reach AWS services only through VPC endpoints, and RDS directly inside the VPC. Calls to external services (OpenAI, Stripe, SMTP, …) are delegated to Lambda functions.
+Private subnets reach the internet through a **NAT instance** ([fck-nat](https://fck-nat.dev), module `RaJiska/fck-nat/aws`, `nat_instance_type`, default `t4g.nano`) in the first public subnet. `ha_mode` keeps a static ENI that both private route tables point at (`0.0.0.0/0`), so the one-instance ASG replaces a failed instance in ~1–2 min without route changes; egress is down meanwhile. The S3 gateway endpoint stays (free), so ECR image layers don't go through the NAT instance. There are no interface endpoints: ECR, CloudWatch Logs and Secrets Manager are reached through the NAT instance too. The output `nat_public_ip` is the stable egress IP for third-party allowlists.
 
-The task security group allows egress only to the interface endpoints (443), the S3 gateway prefix list (443, ECR image layers) and RDS (`db_port`). A new dependency (Redis, a Lambda endpoint, …) needs its own egress rule in `modules/networking/security_groups.tf`.
+The task security group allows egress to the internet only on `app_egress_ports` (default `[443]`; add 587/465 for SMTP) and to RDS (`db_port`). The NAT instance SG accepts all traffic from the VPC CIDR, so the task SG is the effective port allowlist. The module picks the latest fck-nat AMI, so a new AMI release shows up as a launch template change in `plan`; the running instance keeps its AMI until it is replaced.
 
 ## Database connection
 
-The application module receives the RDS endpoint and master secret ARN from the database module outputs and injects into the container:
+The backend module receives the RDS endpoint and master secret ARN from the database module outputs and injects into the container:
 
-- `POSTGRES_HOST`, `POSTGRES_PORT`: the instance's private endpoint (plain env vars);
+- `POSTGRES_HOST`, `POSTGRES_PORT`: the instance's private endpoint, or the RDS Proxy endpoint with `db_proxy_enabled = true` (plain env vars);
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`: from the RDS-managed master secret;
 - `PORT`: from `app_port`.
 
-The backend is the NestJS app (`dogood-backend` branch `refactor/architecture`). The task definition overrides the image `ENTRYPOINT ["node"]` with `sh -c` and runs `modules/application/templates/start.sh`: it assembles `DATABASE_URL` (URL-encoded password, `sslmode=require`) from these variables, runs `prisma migrate deploy`, then `exec node dist/main.js`.
+The backend is the NestJS app (`dogood-backend` branch `refactor/architecture`). The task definition overrides the image `ENTRYPOINT ["node"]` with `sh -c` and runs `modules/backend/templates/start.sh`: it assembles `DATABASE_URL` (URL-encoded password, `sslmode=require`) from these variables, runs `prisma migrate deploy`, then `exec node dist/main.js`.
 
 Any `PORT`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD` or `DATABASE_URL` keys in `app_secrets` are **not** passed to the container. `POSTGRES_DB` and `POSTGRES_USER` from `app_secrets` are still used to create the database.
+
+With `db_proxy_enabled = true` an RDS Proxy (`<stage>-db-proxy`, TLS required, SCRAM-SHA-256) sits in both private subnets and authenticates with the RDS-managed master secret. Its security group accepts `db_port` from the task SG and reaches RDS and the Secrets Manager endpoint. Tasks keep direct RDS access so ones started before the switch still work. Because Terraform ignores task definition changes, running tasks keep the old `POSTGRES_HOST` until the next deployment (`aws ecs update-service ... --force-new-deployment`).
 
 The task definition, ECS service and execution role policy reference RDS attributes that only exist once the instance is created and available, so ECS starts after RDS. The ALB and the ECS cluster are created in parallel with RDS.
 
@@ -61,12 +64,22 @@ Each `<stage>.tfvars` has an **Infrastructure** section grouped by category and 
 | Category | Variables |
 |---|---|
 | General | `stage`, `aws_region`, `aws_profile` |
-| Networking | `vpc_cidr_block`, `vpc_endpoints_single_az` |
-| Database (RDS) | `db_instance_class`, `db_port`, `db_multi_az`, `db_read_replica_count`, `db_deletion_protection`, `db_skip_final_snapshot` (false keeps a `<stage>-db-instance-final` snapshot on delete) |
-| Compute (ECS Fargate) | `ecs_single_az`, `ecs_task_cpu`, `ecs_task_memory`, `ecs_min_capacity`, `ecs_max_capacity`, `app_port`, `app_health_check_path`, `ecr_repository_name`, `app_secret_recovery_window_days` (0 for stages destroyed daily, otherwise the secret name stays reserved) |
+| Networking | `vpc_cidr_block`, `nat_instance_type`, `app_egress_ports` |
+| Database (RDS) | `db_instance_class`, `db_port`, `db_multi_az`, `db_read_replica_count`, `db_deletion_protection`, `db_skip_final_snapshot` (false keeps a `<stage>-db-instance-final` snapshot on delete), `db_apply_immediately` (true applies version/class changes now, with downtime; false waits for the maintenance window), `db_proxy_enabled` (RDS Proxy `<stage>-db-proxy`; `POSTGRES_HOST` becomes the proxy endpoint) |
+| Compute (ECS Fargate) | `ecs_single_az`, `ecs_task_cpu`, `ecs_task_memory`, `ecs_min_capacity`, `ecs_max_capacity`, `ecs_autoscaling_target_cpu_utilization` (target average CPU %, default 75), `app_port`, `app_health_check_path`, `alb_public_enabled` / `alb_internal_enabled` (internet-facing ALB `<stage>-app-lb` in the public subnets and/or internal ALB `<stage>-int-lb` in the private subnets; each has its own target group and the service registers tasks in both; at least one must be on), `ecr_repository_name`, `app_secret_recovery_window_days` (0 for stages destroyed daily, otherwise the secret name stays reserved) |
 | Monitoring | `monitoring_enabled`, `grafana_efs_enabled` |
 
-Single-AZ mode (`db_multi_az = false`, `ecs_single_az = true`, `vpc_endpoints_single_az = true`) puts RDS, ECS tasks and interface endpoints in the first AZ. Subnets still span two AZs because the DB subnet group and the ALB require it.
+**Switching ALBs on a running stage.** The ECS module ignores `load_balancer` changes on an existing service (it goes with `ignore_task_definition_changes`), so Terraform creates or removes the ALB and its target group but doesn't re-register the service. After enabling or disabling an ALB, point the service at the current target groups (ECS rolls out new tasks):
+
+```bash
+aws ecs update-service --cluster <stage>-cluster --service dogood-backend --load-balancers \
+  targetGroupArn=<public tg arn>,containerName=dogood-backend,containerPort=3000 \
+  targetGroupArn=<internal tg arn>,containerName=dogood-backend,containerPort=3000
+```
+
+Replacing an ALB without changing the toggles (e.g. a new listener setting) keeps the target group and needs nothing.
+
+Single-AZ mode (`db_multi_az = false`, `ecs_single_az = true`) puts RDS and ECS tasks in the first AZ (the NAT instance is always in the first AZ). Subnets still span two AZs because the DB subnet group and the ALB require it.
 
 ## Monitoring (Grafana)
 
@@ -86,3 +99,18 @@ aws secretsmanager get-secret-value --secret-id /dogood/mvp/grafana --query Secr
 ```
 
 The ECS service has a public IP by design, so Security Hub control ECS.2 will flag it; this is an accepted exception.
+
+## Frontend (Amplify)
+
+`frontend/` is a standalone root module: one Amplify app for all branches (`branches` in `frontend/terraform.tfvars`: git branch => subdomain of `dogood.ink`). Values live in `frontend/terraform.tfvars` (git-ignored); `api_url` becomes `NEXT_PUBLIC_API_URL`.
+
+```bash
+cd frontend
+terraform init
+export TF_VAR_access_token=<GitHub PAT with access to DoGood-org/dogood-frontend>   # only to create the app
+terraform apply
+terraform output subdomain_dns_records                 # CNAMEs for Cloudflare
+terraform output certificate_verification_dns_record   # certificate validation CNAME
+```
+
+DNS is in Cloudflare: create the CNAMEs from the outputs (DNS only, not proxied, until the certificate is issued). `NEXT_PUBLIC_*` values are baked in at build time, so changing them needs a new build of the branch.
