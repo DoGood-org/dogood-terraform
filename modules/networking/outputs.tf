@@ -18,6 +18,10 @@ output "alb_security_group_id" {
   value = module.alb_sg.id
 }
 
+output "ec2_security_group_id" {
+  value = module.ec2_sg.id
+}
+
 output "db_security_group_id" {
   value = module.db_sg.id
 }

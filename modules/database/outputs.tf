@@ -23,3 +23,13 @@ output "db_proxy_endpoint" {
 output "db_port" {
   value = aws_db_instance.main.port
 }
+
+output "rds_resource_id" {
+  description = "RDS main resource id"
+  value       = aws_db_instance.main.resource_id
+}
+
+output "rds_secret_arn" {
+  description = "Secret ARN, created by RDS"
+  value       = local.rds_secret_arn
+}

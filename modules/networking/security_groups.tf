@@ -38,6 +38,51 @@ module "alb_sg" {
   }
 }
 
+module "ec2_sg" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 6.0"
+
+  name            = "${var.stage}-ec2-sg"
+  description     = "Security group for public application EC2"
+  vpc_id          = module.vpc.vpc_id
+  use_name_prefix = false
+
+  ingress_rules = {
+    http = {
+      from_port   = 80
+      to_port     = 80
+      ip_protocol = "tcp"
+      cidr_ipv4   = "0.0.0.0/0"
+    }
+    https = {
+      from_port   = 443
+      to_port     = 443
+      ip_protocol = "tcp"
+      cidr_ipv4   = "0.0.0.0/0"
+    }
+  }
+
+  egress_rules = {
+    https = {
+      from_port   = 443
+      to_port     = 443
+      ip_protocol = "tcp"
+      cidr_ipv4   = "0.0.0.0/0"
+    }
+    db = {
+      from_port                    = 5432
+      to_port                      = 5432
+      ip_protocol                  = "tcp"
+      referenced_security_group_id = module.db_sg.id
+    }
+  }
+
+  tags = {
+    Name    = "${var.stage}-ec2-sg"
+    Service = "networking"
+  }
+}
+
 module "instance_sg" {
   source  = "terraform-aws-modules/security-group/aws"
   version = "~> 6.0"

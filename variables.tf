@@ -81,6 +81,11 @@ variable "db_apply_immediately" {
   default     = false
 }
 
+variable "db_iam_auth_enabled" {
+  description = "Enable IAM Authentication"
+  default = false
+}
+
 variable "db_proxy_enabled" {
   description = "RDS Proxy in front of the primary; the app connects through it"
   type        = bool
@@ -162,6 +167,28 @@ variable "alb_internal_enabled" {
 variable "ecr_repository_name" {
   description = "Backend ECR repository, ending with -<stage>"
   type        = string
+}
+
+# --- Compute (EC2) ---
+
+variable "instance_name" {
+  description = "EC2 instance name"
+  type = string
+}
+
+variable "instance_type" {
+  description = "EC2 instance type"
+  type = string
+}
+
+variable "ami_id" {
+  description = "EC2 instance AMI"
+  type = string
+}
+
+variable "secret_arn" {
+  description = "Secret manager ARN"
+  type = string
 }
 
 # --- Monitoring ---

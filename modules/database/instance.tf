@@ -1,22 +1,28 @@
+locals {
+  rds_secret_arn  = aws_db_instance.main.master_user_secret[0].secret_arn
+  rds_secret_name = regex("^arn:[^:]+:secretsmanager:[^:]+:[^:]+:secret:(.+)-[^-]+$", local.rds_secret_arn)[0]
+}
+
 resource "aws_db_instance" "main" {
   identifier        = "${var.stage}-db-instance"
   allocated_storage = 20
   engine            = "postgres"
   # Explicit target for the 17 -> 18 upgrade; after it, "18" avoids drift on auto minor upgrades
-  engine_version              = "18.6"
-  allow_major_version_upgrade = true
-  apply_immediately           = var.apply_immediately
-  instance_class              = var.db_instance_class
-  port                        = var.db_port
-  db_name                     = var.db_name
-  username                    = var.db_username
-  manage_master_user_password = true
-  db_subnet_group_name        = var.db_subnet_group_name
-  vpc_security_group_ids      = [var.db_security_group_id]
-  skip_final_snapshot         = var.skip_final_snapshot
-  final_snapshot_identifier   = var.skip_final_snapshot ? null : "${var.stage}-db-instance-final"
-  deletion_protection         = var.deletion_protection
-  storage_encrypted           = true
+  engine_version                      = "18.6"
+  allow_major_version_upgrade         = true
+  iam_database_authentication_enabled = var.iam_auth_enabled
+  apply_immediately                   = var.apply_immediately
+  instance_class                      = var.db_instance_class
+  port                                = var.db_port
+  db_name                             = var.db_name
+  username                            = var.db_username
+  manage_master_user_password         = true
+  db_subnet_group_name                = var.db_subnet_group_name
+  vpc_security_group_ids              = [var.db_security_group_id]
+  skip_final_snapshot                 = var.skip_final_snapshot
+  final_snapshot_identifier           = var.skip_final_snapshot ? null : "${var.stage}-db-instance-final"
+  deletion_protection                 = var.deletion_protection
+  storage_encrypted                   = true
 
   multi_az                = var.multi_az
   availability_zone       = var.multi_az ? null : var.availability_zone
@@ -45,4 +51,16 @@ resource "aws_db_instance" "replica" {
     Name    = "${var.stage}-db-replica-${count.index + 1}"
     Service = "database"
   }
+}
+
+resource "aws_ssm_parameter" "database_host" {
+  name  = "/dogood/mvp/db_host"
+  type  = "String"
+  value = aws_db_instance.main.address
+}
+
+resource "aws_ssm_parameter" "secret_arn" {
+  name  = "/dogood/mvp/secret_arn"
+  type  = "String"
+  value = local.rds_secret_name
 }

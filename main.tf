@@ -26,6 +26,7 @@ module "database" {
   apply_immediately    = var.db_apply_immediately
   db_subnet_group_name = module.network.db_subnet_group_name
   db_security_group_id = module.network.db_security_group_id
+  iam_auth_enabled     = var.db_iam_auth_enabled
 
   proxy_enabled           = var.db_proxy_enabled
   proxy_subnet_ids        = module.network.private_subnet_ids
@@ -58,6 +59,26 @@ module "backend" {
   internal_alb_enabled               = var.alb_internal_enabled
   container_image                    = "${data.aws_ecr_repository.backend.repository_url}:latest"
   ecr_repository_arn                 = data.aws_ecr_repository.backend.arn
+}
+
+module "ec2" {
+  source = "./modules/ec2"
+
+  instance_name = var.instance_name
+  instance_type = var.instance_type
+  ami_id    = var.ami_id
+  subnet_id = module.network.public_subnet_ids[0]
+  security_group_ids = [module.network.ec2_security_group_id, module.network.instance_security_group_id]
+  
+  
+  rds_resource_id = module.database.rds_resource_id
+  rds_secret_arn = module.database.rds_secret_arn
+  secret_arn = var.secret_arn
+  
+  depends_on = [
+    module.network.ec2_sg,
+    module.database.database_host
+  ]
 }
 
 module "monitoring" {

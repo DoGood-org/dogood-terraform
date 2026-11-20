@@ -54,6 +54,11 @@ variable "apply_immediately" {
   type        = bool
 }
 
+variable "iam_auth_enabled" {
+  description = "Enable IAM Authentication"
+  type = bool
+}
+
 variable "proxy_enabled" {
   description = "Put an RDS Proxy in front of the primary instance"
   type        = bool
