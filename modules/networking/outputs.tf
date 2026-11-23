@@ -35,7 +35,11 @@ output "azs" {
   value = local.azs
 }
 
-output "nat_public_ip" {
-  description = "Egress IP of the private subnets (for third-party allowlists)"
-  value       = module.nat.instance_public_ip
+output "nat_security_group_ids" {
+  value = module.nat[*].security_group_id
+}
+
+output "monitoring_security_group_id" {
+  description = "null when monitoring is disabled"
+  value       = module.monitoring_sg.id
 }

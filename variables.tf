@@ -31,6 +31,12 @@ variable "nat_instance_type" {
   default     = "t4g.nano"
 }
 
+variable "nat_per_az" {
+  description = "One fck-nat instance per AZ, each private route table through its own AZ; false: one instance in the first AZ"
+  type        = bool
+  default     = true
+}
+
 variable "app_egress_ports" {
   description = "TCP ports ECS tasks may reach on the internet (443; add 587/465 for SMTP)"
   type        = list(number)
@@ -159,6 +165,17 @@ variable "alb_internal_enabled" {
   }
 }
 
+variable "api_hostname" {
+  description = "Public API host (e.g. api.dogood.ink). Enables HTTPS (ACM) on the public ALB, 80 -> 443 redirect and host routing (other hosts get 404); null: plain HTTP"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.api_hostname == null || var.alb_public_enabled
+    error_message = "api_hostname needs alb_public_enabled = true."
+  }
+}
+
 variable "ecr_repository_name" {
   description = "Backend ECR repository, ending with -<stage>"
   type        = string
@@ -167,15 +184,65 @@ variable "ecr_repository_name" {
 # --- Monitoring ---
 
 variable "monitoring_enabled" {
-  description = "Deploy Grafana"
+  description = "Deploy the monitoring stack (Prometheus, Grafana, exporters on ECS EC2), node_exporter on NAT and the ecs_exporter sidecar"
   type        = bool
   default     = false
 }
 
-variable "grafana_efs_enabled" {
-  description = "Keep Grafana data on EFS"
-  type        = bool
-  default     = false
+variable "monitoring_instance_type" {
+  description = "ECS container instance for the monitoring task"
+  type        = string
+  default     = "t4g.small"
+}
+
+variable "monitoring_volume_size" {
+  description = "Root gp3 volume of the monitoring instance (GiB)"
+  type        = number
+  default     = 30
+}
+
+variable "prometheus_retention_time" {
+  type    = string
+  default = "15d"
+}
+
+variable "prometheus_retention_size" {
+  description = "Prometheus TSDB size cap; keep well below monitoring_volume_size"
+  type        = string
+  default     = "15GB"
+}
+
+variable "backend_metrics_path" {
+  description = "Backend app metrics path scraped on app_port; null: don't scrape the app"
+  type        = string
+  default     = "/metrics"
+}
+
+variable "monitoring_hostname" {
+  description = "Grafana host on the public ALB (e.g. monitoring.dogood.ink); null: Grafana only through the SSM tunnel"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.monitoring_hostname == null || (var.monitoring_enabled && var.api_hostname != null)
+    error_message = "monitoring_hostname needs monitoring_enabled = true and api_hostname (HTTPS listener)."
+  }
+}
+
+variable "monitoring_allowed_cidrs" {
+  description = "Source IPs (CIDR) allowed to reach monitoring_hostname, max 4 (ALB rule limit); others get 403"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = length(var.monitoring_allowed_cidrs) <= 4 && alltrue([for c in var.monitoring_allowed_cidrs : can(cidrhost(c, 0))])
+    error_message = "monitoring_allowed_cidrs: at most 4 valid CIDRs."
+  }
+
+  validation {
+    condition     = var.monitoring_hostname == null || length(var.monitoring_allowed_cidrs) > 0
+    error_message = "monitoring_hostname needs at least one CIDR in monitoring_allowed_cidrs."
+  }
 }
 
 # --- Application ---

@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# Opens an SSM port-forwarding tunnel to the Grafana task: http://localhost:<local port>
-# Usage: scripts/grafana-tunnel.sh [stage] [local port]
-# Requires the AWS CLI and the Session Manager plugin.
 set -euo pipefail
 
 STAGE="${1:-mvp}"
 LOCAL_PORT="${2:-3000}"
-CLUSTER="${STAGE}-cluster"
-SERVICE="grafana"
+REMOTE_PORT="${3:-3000}"
+CLUSTER="${STAGE}-monitoring"
+SERVICE="monitoring"
 
 TASK_ARN=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SERVICE" \
   --desired-status RUNNING --query 'taskArns[0]' --output text)
@@ -20,9 +18,9 @@ fi
 RUNTIME_ID=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
   --query "tasks[0].containers[?name=='grafana'].runtimeId | [0]" --output text)
 
-echo "Grafana: http://localhost:${LOCAL_PORT} (admin password: secret /dogood/${STAGE}/grafana)"
+echo "http://localhost:${LOCAL_PORT} -> task port ${REMOTE_PORT} (Grafana admin password: secret /dogood/${STAGE}/grafana)"
 
 aws ssm start-session \
   --target "ecs:${CLUSTER}_${TASK_ARN##*/}_${RUNTIME_ID}" \
   --document-name AWS-StartPortForwardingSession \
-  --parameters "{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"${LOCAL_PORT}\"]}"
+  --parameters "{\"portNumber\":[\"${REMOTE_PORT}\"],\"localPortNumber\":[\"${LOCAL_PORT}\"]}"

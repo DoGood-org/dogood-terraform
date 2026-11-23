@@ -41,9 +41,12 @@ resource "aws_iam_role_policy" "ecs_execution" {
         Resource = [var.ecr_repository_arn]
       },
       {
-        Effect   = "Allow"
-        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = ["${local.log_group_arn}:*"]
+        Effect = "Allow"
+        Action = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = concat(
+          ["${local.log_group_arn}:*"],
+          var.ecs_exporter_enabled ? ["${local.ecs_exporter_log_group_arn}:*"] : []
+        )
       },
       {
         Effect = "Allow"

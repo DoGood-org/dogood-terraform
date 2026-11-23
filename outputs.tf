@@ -6,9 +6,6 @@ output "public_subnet_ids" {
   value = module.network.public_subnet_ids
 }
 
-output "nat_public_ip" {
-  value = module.network.nat_public_ip
-}
 
 output "db_endpoint" {
   value = module.database.db_endpoint
@@ -34,8 +31,33 @@ output "internal_load_balancer_dns_name" {
   value = module.backend.internal_load_balancer_dns_name
 }
 
-output "grafana_service_name" {
+output "acm_validation_records" {
+  description = "Add in Cloudflare as DNS only (grey cloud); the first apply waits until the certificate is issued"
+  value       = module.backend.acm_validation_records
+}
+
+output "dns_records" {
+  description = "CNAMEs to create in Cloudflare for the public ALB"
+  value = merge(
+    var.api_hostname == null ? {} : {
+      (var.api_hostname) = { type = "CNAME", value = module.backend.load_balancer_dns_name, proxy = "proxied or DNS only (SSL mode Full (strict) when proxied)" }
+    },
+    var.monitoring_hostname == null ? {} : {
+      (var.monitoring_hostname) = { type = "CNAME", value = module.backend.load_balancer_dns_name, proxy = "DNS only: the ALB rule checks the client IP" }
+    }
+  )
+}
+
+output "monitoring_cluster_name" {
+  value = one(module.monitoring[*].cluster_name)
+}
+
+output "monitoring_service_name" {
   value = one(module.monitoring[*].service_name)
+}
+
+output "grafana_url" {
+  value = one(module.monitoring[*].grafana_url)
 }
 
 output "grafana_admin_secret_arn" {
