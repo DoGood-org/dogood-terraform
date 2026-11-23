@@ -1,0 +1,100 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    stage: ${stage}
+
+scrape_configs:
+  # --- Same task (localhost) ---
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: grafana
+    static_configs:
+      - targets: ["localhost:${grafana_port}"]
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["localhost:9187"]
+        labels:
+          db: rds
+
+  - job_name: blackbox-exporter
+    static_configs:
+      - targets: ["localhost:9115"]
+
+  # --- Backend tasks, discovered through the ECS API ---
+
+  - job_name: ecs-exporter
+    aws_sd_configs:
+      - role: ecs
+        region: ${region}
+        clusters: ["${backend_cluster_arn}"]
+        port: ${ecs_exporter_port}
+    relabel_configs: &backend_relabel
+      - source_labels: [__meta_ecs_service]
+        regex: ${backend_service_name}
+        action: keep
+      - source_labels: [__meta_ecs_last_status]
+        regex: RUNNING
+        action: keep
+      - source_labels: [__meta_ecs_service]
+        target_label: service
+      - source_labels: [__meta_ecs_availability_zone]
+        target_label: az
+      - source_labels: [__meta_ecs_task_arn]
+        regex: ".*/([^/]+)"
+        target_label: task_id
+%{ if backend_metrics_path != null ~}
+
+  - job_name: backend
+    metrics_path: ${backend_metrics_path}
+    aws_sd_configs:
+      - role: ecs
+        region: ${region}
+        clusters: ["${backend_cluster_arn}"]
+        port: ${app_port}
+    relabel_configs: *backend_relabel
+%{ endif ~}
+
+  # --- NAT instances (node_exporter), discovered through the EC2 API ---
+
+  - job_name: node-nat
+    aws_sd_configs:
+      - role: ec2
+        region: ${region}
+        port: ${node_exporter_port}
+        filters:
+          - name: tag:Environment
+            values: ["${stage}"]
+          - name: tag:Service
+            values: ["networking"]
+          - name: instance-state-name
+            values: ["running"]
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: nat
+      - source_labels: [__meta_ec2_availability_zone]
+        target_label: az
+      - source_labels: [__meta_ec2_instance_id]
+        target_label: instance_id
+%{ if probe_url != null ~}
+
+  # --- External probe of the public API (through NAT, ALB, TLS) ---
+
+  - job_name: blackbox-api
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ["${probe_url}"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9115
+%{ endif ~}

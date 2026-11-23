@@ -9,8 +9,6 @@ export DATABASE_URL="$(node -e '
   )
 ')"
 
-npx --no prisma migrate deploy
+./node_modules/.bin/prisma migrate deploy
 
-# The current image compiles to dist/src/ (prisma/seed.ts is included in the build).
-# Switch back to dist/main.js once the backend excludes prisma/ from tsconfig.build.json.
-exec node dist/src/main.js
+exec node dist/main.js

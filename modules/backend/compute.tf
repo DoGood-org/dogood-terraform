@@ -4,6 +4,9 @@ locals {
   log_group_name = "/aws/ecs/${var.stage}/dogood-backend"
   log_group_arn  = "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:${local.log_group_name}"
 
+  ecs_exporter_log_group_name = "${local.log_group_name}-ecs-exporter"
+  ecs_exporter_log_group_arn  = "${local.log_group_arn}-ecs-exporter"
+
   task_subnet_ids = var.single_az ? slice(var.private_subnet_ids, 0, 1) : var.private_subnet_ids
 }
 
@@ -62,7 +65,7 @@ module "ecs_service" {
   create_iam_role       = false
   create_tasks_iam_role = false
 
-  container_definitions = {
+  container_definitions = merge({
     dogood-backend = {
       image     = var.container_image
       essential = true
@@ -104,7 +107,25 @@ module "ecs_service" {
         ]
       )
     }
-  }
+    },
+    # Task CPU/memory/network metrics from the task metadata endpoint, scraped by Prometheus
+    {
+      for name, container in {
+        ecs-exporter = {
+          image     = "quay.io/prometheuscommunity/ecs-exporter:v0.6.0@sha256:03674eb4275510af0ae8d69644dfce7532a41e80171cffdd65186aa57ff52bcc"
+          essential = false
+
+          cloudwatch_log_group_name = local.ecs_exporter_log_group_name
+
+          portMappings = [{
+            containerPort = var.ecs_exporter_port
+            hostPort      = var.ecs_exporter_port
+            protocol      = "tcp"
+          }]
+        }
+      } : name => container if var.ecs_exporter_enabled
+    }
+  )
 
   deployment_circuit_breaker = {
     enable   = true

@@ -94,3 +94,22 @@ variable "internal_alb_enabled" {
   description = "Internal ALB in the private subnets (reachable from the VPC only)"
   type        = bool
 }
+
+variable "tls_hostnames" {
+  description = "Hostnames on the public ALB certificate (first is the primary name); empty: no TLS"
+  type        = list(string)
+}
+
+variable "api_hostname" {
+  description = "Host routed to the app on the HTTPS listener; other hosts get 404. null: no host routing"
+  type        = string
+}
+
+variable "ecs_exporter_enabled" {
+  description = "ecs_exporter sidecar in the backend task (task CPU/memory metrics for Prometheus)"
+  type        = bool
+}
+
+variable "ecs_exporter_port" {
+  type = number
+}
